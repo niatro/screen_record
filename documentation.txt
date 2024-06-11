@@ -88,3 +88,140 @@ def analyze_image(image_path):
 
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
     return response.json()
+
+
+    ### Descripción del Procedimiento Deseado
+
+1. **Inicialización del Script**:
+   - El script se inicia y carga las claves de API necesarias desde un archivo `.env`.
+   - Se aseguran de que existan las carpetas necesarias para almacenar imágenes, audio, configuración, datos y logs.
+
+2. **Definición de Datos a Extraer**:
+   - Al iniciar el script, se le pregunta al usuario qué datos específicos desea extraer de los documentos que va a analizar.
+   - La información proporcionada por el usuario se guarda en un archivo de configuración para su uso posterior.
+
+3. **Captura de Pantalla**:
+   - El usuario puede activar la captura de pantalla presionando una combinación de teclas específica (Ctrl + Espacio).
+   - Al activarse, el script captura la pantalla, redimensiona la imagen a 512x512 píxeles y la guarda en una carpeta predeterminada con un nombre basado en el timestamp.
+
+4. **Codificación de la Imagen**:
+   - La imagen capturada se convierte a un formato base64 para poder ser enviada a una API de análisis.
+
+5. **Análisis del Documento**:
+   - La imagen codificada se envía a una API (puede ser la de OpenAI o la de Anthropic) para su análisis.
+   - El tipo de datos a extraer, definido previamente por el usuario, se incluye en el mensaje enviado a la API.
+   - La API devuelve una respuesta que incluye la información extraída de la imagen.
+
+6. **Extracción y Almacenamiento de Datos**:
+   - Los datos extraídos de la imagen se guardan en un archivo de texto en formato JSON.
+   - Cada entrada incluye un timestamp, la ruta de la imagen relacionada y los datos extraídos.
+
+7. **Gestión de Errores**:
+   - Cualquier error que ocurra durante la captura, análisis o almacenamiento de datos se registra en un archivo de logs para su revisión posterior.
+
+8. **Eventos de Teclado**:
+   - El script monitorea la combinación de teclas definida (Ctrl + Espacio) para activar la captura y análisis de la pantalla.
+   - Se maneja la presión y liberación de las teclas para asegurar que la función solo se active cuando se presiona la combinación correcta.
+
+### Flujo del Proceso
+
+1. **Inicio del Script**:
+   - Se carga la configuración y se crean las carpetas necesarias.
+
+2. **Pregunta al Usuario**:
+   - El script pregunta al usuario qué tipo de datos desea extraer.
+
+3. **Esperando Entrada del Usuario**:
+   - El script espera a que el usuario presione la combinación de teclas (Ctrl + Espacio).
+
+4. **Captura y Análisis**:
+   - Al presionar Ctrl + Espacio, se captura la pantalla.
+   - La imagen capturada se codifica y se envía a la API seleccionada para análisis.
+   - Se extraen los datos deseados y se guardan en un archivo de texto en formato JSON.
+
+5. **Registro de Errores**:
+   - Cualquier error durante el proceso se registra en un archivo de logs.
+
+### Consideraciones Adicionales
+
+- **Seguridad y Privacidad**:
+  - Asegurarse de que las imágenes y datos capturados no contengan información sensible que no deba ser enviada a APIs externas.
+  
+- **Optimización de Recursos**:
+  - Considerar la optimización del uso de recursos del sistema para que el script no afecte el rendimiento del equipo del usuario.
+
+- **Escalabilidad**:
+  - Preparar el script para que en el futuro pueda soportar capturas de pantalla automáticas basadas en intervalos de tiempo o cambios en la pantalla, si el usuario decide implementar esta funcionalidad.
+
+
+
+  Low or high fidelity image understanding
+By controlling the detail parameter, which has three options, low, high, or auto, you have control over how the model processes the image and generates its textual understanding. By default, the model will use the auto setting which will look at the image input size and decide if it should use the low or high setting.
+
+low will enable the "low res" mode. The model will receive a low-res 512px x 512px version of the image, and represent the image with a budget of 85 tokens. This allows the API to return faster responses and consume fewer input tokens for use cases that do not require high detail.
+high will enable "high res" mode, which first allows the model to first see the low res image (using 85 tokens) and then creates detailed crops using 170 tokens for each 512px x 512px tile.
+Choosing the detail level
+python
+
+python
+from openai import OpenAI
+
+client = OpenAI()
+
+response = client.chat.completions.create(
+  model="gpt-4o",
+  messages=[
+    {
+      "role": "user",
+      "content": [
+        {"type": "text", "text": "What’s in this image?"},
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
+            "detail": "high"
+          },
+        },
+      ],
+    }
+  ],
+  max_tokens=300,
+)
+
+print(response.choices[0].message.content)
+Managing images
+The Chat Completions API, unlike the Assistants API, is not stateful. That means you have to manage the messages (including images) you pass to the model yourself. If you want to pass the same image to the model multiple times, you will have to pass the image each time you make a request to the API.
+
+For long running conversations, we suggest passing images via URL's instead of base64. The latency of the model can also be improved by downsizing your images ahead of time to be less than the maximum size they are expected them to be. For low res mode, we expect a 512px x 512px image. For high res mode, the short side of the image should be less than 768px and the long side should be less than 2,000px.
+
+After an image has been processed by the model, it is deleted from OpenAI servers and not retained. We do not use data uploaded via the OpenAI API to train our models.
+
+Limitations
+While GPT-4 with vision is powerful and can be used in many situations, it is important to understand the limitations of the model. Here are some of the limitations we are aware of:
+
+Medical images: The model is not suitable for interpreting specialized medical images like CT scans and shouldn't be used for medical advice.
+Non-English: The model may not perform optimally when handling images with text of non-Latin alphabets, such as Japanese or Korean.
+Small text: Enlarge text within the image to improve readability, but avoid cropping important details.
+Rotation: The model may misinterpret rotated / upside-down text or images.
+Visual elements: The model may struggle to understand graphs or text where colors or styles like solid, dashed, or dotted lines vary.
+Spatial reasoning: The model struggles with tasks requiring precise spatial localization, such as identifying chess positions.
+Accuracy: The model may generate incorrect descriptions or captions in certain scenarios.
+Image shape: The model struggles with panoramic and fisheye images.
+Metadata and resizing: The model doesn't process original file names or metadata, and images are resized before analysis, affecting their original dimensions.
+Counting: May give approximate counts for objects in images.
+CAPTCHAS: For safety reasons, we have implemented a system to block the submission of CAPTCHAs.
+Calculating costs
+Image inputs are metered and charged in tokens, just as text inputs are. The token cost of a given image is determined by two factors: its size, and the detail option on each image_url block. All images with detail: low cost 85 tokens each. detail: high images are first scaled to fit within a 2048 x 2048 square, maintaining their aspect ratio. Then, they are scaled such that the shortest side of the image is 768px long. Finally, we count how many 512px squares the image consists of. Each of those squares costs 170 tokens. Another 85 tokens are always added to the final total.
+
+Here are some examples demonstrating the above.
+
+A 1024 x 1024 square image in detail: high mode costs 765 tokens
+1024 is less than 2048, so there is no initial resize.
+The shortest side is 1024, so we scale the image down to 768 x 768.
+4 512px square tiles are needed to represent the image, so the final token cost is 170 * 4 + 85 = 765.
+A 2048 x 4096 image in detail: high mode costs 1105 tokens
+We scale down the image to 1024 x 2048 to fit within the 2048 square.
+The shortest side is 1024, so we further scale down to 768 x 1536.
+6 512px tiles are needed, so the final token cost is 170 * 6 + 85 = 1105.
+A 4096 x 8192 image in detail: low most costs 85 tokens
+Regardless of input size, low detail images are a fixed cost.

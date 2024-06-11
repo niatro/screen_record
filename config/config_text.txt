@@ -1,0 +1,1 @@
+Busca una pregunta dentro de la imagen y respondela brevemente, responde en español.
